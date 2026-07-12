@@ -44,10 +44,70 @@
 
   targets.forEach(el=> io.observe(el));
 
+  // timeline connecting line draws in once its section is in view
+  const timeline = document.getElementById('timeline');
+  if(timeline){
+    const tlIo = new IntersectionObserver((entries)=>{
+      entries.forEach(entry=>{
+        if(entry.isIntersecting){
+          timeline.classList.add('visible');
+          tlIo.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    tlIo.observe(timeline);
+  }
+
   // Hero elements reveal immediately on load rather than waiting for scroll
   window.addEventListener('load', ()=>{
     document.querySelectorAll('.hero .reveal-in').forEach((el,i)=>{
       setTimeout(()=> el.classList.add('visible'), i*120);
+    });
+  });
+})();
+
+// ===================== SMOOTH ACCORDION =====================
+(function initAccordion(){
+  const items = document.querySelectorAll('.accordion details');
+  items.forEach(details=>{
+    const content = details.querySelector('.acc-content');
+    if(!content) return;
+
+    // set initial height based on starting open/closed state
+    if(details.open){
+      content.style.height = 'auto';
+    } else {
+      content.style.height = '0px';
+    }
+
+    const summary = details.querySelector('summary');
+    summary.addEventListener('click', (e)=>{
+      e.preventDefault();
+
+      if(details.open){
+        // closing: animate from current height down to 0
+        const startHeight = content.scrollHeight + 'px';
+        content.style.height = startHeight;
+        requestAnimationFrame(()=>{
+          content.style.height = '0px';
+        });
+        content.addEventListener('transitionend', function handler(){
+          details.open = false;
+          content.removeEventListener('transitionend', handler);
+        }, { once:true });
+      } else {
+        // opening: set display via open attribute first, then animate to full height
+        details.open = true;
+        const fullHeight = content.scrollHeight + 'px';
+        content.style.height = '0px';
+        requestAnimationFrame(()=>{
+          content.style.height = fullHeight;
+        });
+        content.addEventListener('transitionend', function handler(){
+          content.style.height = 'auto';
+          content.removeEventListener('transitionend', handler);
+        }, { once:true });
+      }
     });
   });
 })();
@@ -65,11 +125,21 @@
 
   function pad(n){ return String(n).padStart(2,'0'); }
 
+  function setWithPulse(el, value){
+    if(el.textContent !== value){
+      el.textContent = value;
+      el.classList.remove('pulse');
+      // force reflow so the animation can restart every second
+      void el.offsetWidth;
+      el.classList.add('pulse');
+    }
+  }
+
   function tick(){
     const now = Date.now();
     let diff = target - now;
     if(diff <= 0){
-      els.d.textContent = els.h.textContent = els.m.textContent = els.s.textContent = '00';
+      [els.d, els.h, els.m, els.s].forEach(el=> el.textContent = '00');
       const label = document.querySelector('.countdown-label');
       if(label) label.textContent = 'शुभविवाह मंगलमय होवो! 🎉';
       clearInterval(timer);
@@ -79,10 +149,10 @@
     const hr  = Math.floor((diff % 86400000) / 3600000);
     const min = Math.floor((diff % 3600000) / 60000);
     const sec = Math.floor((diff % 60000) / 1000);
-    els.d.textContent = pad(day);
-    els.h.textContent = pad(hr);
-    els.m.textContent = pad(min);
-    els.s.textContent = pad(sec);
+    setWithPulse(els.s, pad(sec));
+    setWithPulse(els.m, pad(min));
+    setWithPulse(els.h, pad(hr));
+    setWithPulse(els.d, pad(day));
   }
 
   tick();
